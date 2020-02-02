@@ -1,0 +1,77 @@
+import gevent
+from gevent import monkey
+monkey.patch_all()
+from gevent.queue import Queue
+from bs4 import BeautifulSoup
+import requests
+import uuid
+
+# url = 'https://www.wowoqq.com/qqtouxiang/nv/list_195_3.html'
+
+HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36',
+    }
+page_url = []
+for p in range(1,10):
+    if p == 1:
+        url = 'https://www.wowoqq.com/qqtouxiang/nv/'
+        page_url.append(url)
+    else:
+        url = f'https://www.wowoqq.com/qqtouxiang/nv/list_195_{p}.html'
+        page_url.append(url)
+print(page_url)
+pa_url = []
+for page in page_url:
+    res = requests.get(page).text
+    soup = BeautifulSoup(res, 'lxml')
+    li_list = soup.find_all('a',class_='img')
+    for li in li_list:
+        p_url = li['href']
+        pa_url.append(p_url)
+print(len(pa_url))
+
+url_list = []
+for url in pa_url:
+    res = requests.get(url).text
+    soup = BeautifulSoup(res, 'lxml')
+    img_list = soup.find_all('div', class_='artCon tx_article')
+
+    for img in img_list:
+        for i in img:
+            # print(i)
+            try:
+                src_url = i.find('img')['src']
+                src = src_url
+                print('src',src)
+                url_list.append(src)
+            except:
+                print('字符串。。。')
+
+print(len(url_list))
+
+work = Queue()
+for url in url_list:
+    print(url)
+    work.put_nowait(url)
+
+def crawler():
+    while not work.empty():
+        u = work.get_nowait()
+        res = requests.get(u,headers=HEADERS)
+        name = uuid.uuid4()
+
+        with open(f'./img/{name}.jpg', 'wb')as f:
+            f.write(res.content)
+            print(f'{name}下载成功')
+
+
+
+task_list = []
+for x in range(30):
+    task = gevent.spawn(crawler)
+    task_list.append(task)
+
+gevent.joinall(task_list,)
+
+
+
